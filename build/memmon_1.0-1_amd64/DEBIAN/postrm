@@ -1,0 +1,15 @@
+#!/bin/sh
+set -e
+if [ -d /run/systemd/system ]; then
+    case "$1" in
+        remove)
+            systemctl stop memmon.service >/dev/null 2>&1 || true
+            systemctl daemon-reload >/dev/null 2>&1 || true
+            ;;
+        purge)
+            systemctl disable --now memmon.service >/dev/null 2>&1 || true
+            systemctl daemon-reload >/dev/null 2>&1 || true
+            ;;
+    esac
+fi
+exit 0

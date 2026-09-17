@@ -1,0 +1,92 @@
+.TH MEMMON 1 "2026-09-16" "memmon 1.0" "User Commands"
+.SH NAME
+memmon \- scrollable, man-page-styled Linux memory usage monitor
+.SH SYNOPSIS
+.B memmon
+[\fIOPTIONS\fR]
+.SH DESCRIPTION
+.B memmon
+reads
+.I /proc/meminfo
+(total/used/free/available memory, buffers, cache, shared memory, swap,
+active/inactive, reclaimable slab, dirty/writeback, commit, vmalloc, huge
+pages, and every other field the running kernel exposes) along with the
+system load average, and displays it either as a scrollable interactive
+terminal display that auto-refreshes on a timer, or logs it to a daily
+file in headless
+.B \-\-daemon
+mode, intended to run under systemd.
+.SH OPTIONS
+.TP
+.BR \-i ", " \-\-interval " " \fIINTERVAL\fR
+Refresh/log interval. Accepts plain seconds or a suffix: \fBs\fR (seconds),
+\fBm\fR (minutes), \fBh\fR (hours), \fBd\fR (days). Examples: \fB5\fR,
+\fB5s\fR, \fB5m\fR, \fB1h\fR. Default: \fB5s\fR.
+.TP
+.BR \-d ", " \-\-daemon
+Headless mode: no interactive display, just logs a snapshot on each
+interval. Intended for systemd. Handles SIGTERM/SIGINT for clean shutdown.
+.TP
+.BR \-o ", " \-\-once
+Print a single snapshot to stdout and exit. No interactive display, no
+loop, no log file written.
+.TP
+.BR \-p ", " \-\-plain
+Interactive watch mode without ncurses: plain ANSI clear-screen/redraw
+instead of full cursor addressing. Use this if the default ncurses
+display looks garbled or fails to redraw in place on your terminal
+(seen on some Windows/WSL terminal front-ends).
+.TP
+.BR \-l ", " \-\-log\-dir " " \fIDIR\fR
+Directory for daily log files, named \fIYYYY\-MM\-DD.log\fR. Default:
+\fI/var/log/memmon\fR (falls back to \fI~/.local/share/memmon\fR if that
+is not writable).
+.TP
+.BR \-n ", " \-\-no\-log
+Disable logging while in interactive mode.
+.TP
+.BR \-h ", " \-\-help
+Show usage help and exit.
+.TP
+.BR \-v ", " \-\-version
+Show version and exit.
+.SH INTERACTIVE KEYS
+.TP
+.B q
+Quit.
+.TP
+.B "up/down or j/k"
+Scroll one line.
+.TP
+.B "PgUp/PgDn"
+Scroll one page.
+.TP
+.B "g / G"
+Jump to top / bottom of the report.
+.TP
+.B r
+Refresh immediately and reset the countdown.
+.SH FILES
+.TP
+.I /var/log/memmon/YYYY\-MM\-DD.log
+Default daily log location (see \fB\-\-log\-dir\fR).
+.TP
+.I /lib/systemd/system/memmon.service
+systemd unit for running memmon as a headless logging daemon.
+.SH EXAMPLES
+.TP
+memmon
+Interactive display, refreshing every 5 seconds.
+.TP
+memmon \-i 5m
+Interactive display, refreshing every 5 minutes.
+.TP
+memmon \-\-once
+One-shot plain text report.
+.TP
+memmon \-\-daemon \-i 5m
+Headless logger, as used by the systemd service.
+.SH SEE ALSO
+.BR free (1),
+.BR top (1),
+.BR proc (5)

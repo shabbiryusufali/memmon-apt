@@ -1,0 +1,19 @@
+Package: memmon
+Version: 1.0-1
+Section: utils
+Priority: optional
+Architecture: amd64
+Depends: libc6 (>= 2.34), libncursesw6 (>= 6), libtinfo6 (>= 6)
+Maintainer: CHANGE ME <you@example.com>
+Description: scrollable, man-page-styled Linux memory usage monitor
+ memmon reads /proc/meminfo (total/used/free/available memory, buffers,
+ cache, shared memory, swap, active/inactive, reclaimable slab,
+ dirty/writeback, commit, vmalloc, huge pages, and every other field the
+ running kernel exposes) along with the load average, and displays it as
+ a scrollable, man-page-styled terminal report that auto-refreshes on a
+ configurable interval (seconds, minutes, hours, or days).
+ .
+ It can also run headless via `memmon --daemon`, appending timestamped
+ snapshots to a daily log file (YYYY-MM-DD.log); a systemd service unit
+ is included to run it this way automatically at boot.
+Installed-Size: 68
