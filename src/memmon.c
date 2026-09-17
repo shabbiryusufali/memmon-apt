@@ -289,6 +289,58 @@ static void resolve_logdir(const char *requested, char *out, size_t outlen)
     ensure_dir(out);
 }
 
+static void print_bar_plain(FILE *out, double pct, int width);
+
+/* Prints "Label1: value1   Label2: value2" (or just the first pair when
+ * lbl2 is NULL), column-aligned so daily log files scan as easily as the
+ * interactive display instead of one dense key=value line per metric. */
+static void log_two_col(FILE *f, const char *lbl1, const char *val1,
+                         const char *lbl2, const char *val2)
+{
+    char l1[24];
+    snprintf(l1, sizeof(l1), "%s:", lbl1);
+    if (lbl2) {
+        char l2[24];
+        snprintf(l2, sizeof(l2), "%s:", lbl2);
+        fprintf(f, "  %-18s%-12s%-18s%s\n", l1, val1, l2, val2);
+    } else {
+        fprintf(f, "  %-18s%s\n", l1, val1);
+    }
+}
+
+typedef struct { const char *label; char value[32]; } LogKv;
+
+/* Collects the fields (from /proc/meminfo) present on this kernel into a
+ * flat label/value list, formatting HugePages_* counts as raw numbers and
+ * everything else via human_kb, mirroring what write_snapshot printed before. */
+static int log_collect_kv(const Meminfo *mi, const char **fields, LogKv *out, int max)
+{
+    int n = 0;
+    for (int i = 0; fields[i] && n < max; i++) {
+        if (!mi_has(mi, fields[i])) continue;
+        out[n].label = fields[i];
+        if (strncmp(fields[i], "HugePages_", 10) == 0)
+            snprintf(out[n].value, sizeof(out[n].value), "%llu", mi_get(mi, fields[i]));
+        else
+            human_kb(mi_get(mi, fields[i]), out[n].value, sizeof(out[n].value));
+        n++;
+    }
+    return n;
+}
+
+static void log_write_section(FILE *f, const char *title, const LogKv *kv, int n)
+{
+    if (n == 0) return;
+    fprintf(f, "%s\n", title);
+    for (int i = 0; i < n; i += 2) {
+        if (i + 1 < n)
+            log_two_col(f, kv[i].label, kv[i].value, kv[i + 1].label, kv[i + 1].value);
+        else
+            log_two_col(f, kv[i].label, kv[i].value, NULL, NULL);
+    }
+    fputc('\n', f);
+}
+
 static void write_snapshot(FILE *f, const Meminfo *mi, const Derived *d,
                             const char *hostname, const char *kernel)
 {
@@ -314,43 +366,66 @@ static void write_snapshot(FILE *f, const Meminfo *mi, const Derived *d,
     double l1 = -1, l5 = -1, l15 = -1;
     loadavg_read(&l1, &l5, &l15);
 
-    fprintf(f, "==================================================================\n");
-    fprintf(f, "%s  host=%s  kernel=%s\n", ts, hostname, kernel);
-    fprintf(f, "------------------------------------------------------------------\n");
-    fprintf(f, "Mem   total=%-10s used=%-10s (%.1f%%) avail=%-10s free=%-10s\n",
-            total_h, used_h, d->mem_pct, avail_h, free_h);
-    fprintf(f, "      buffers=%-10s cached=%-10s shared=%-10s\n",
-            buf_h, cache_h, shmem_h);
-    fprintf(f, "Swap  total=%-10s used=%-10s (%.1f%%) free=%-10s cached=%-10s\n",
-            stotal_h, sused_h, d->swap_pct, sfree_h, scache_h);
-    if (l1 >= 0)
-        fprintf(f, "Load  1m=%.2f 5m=%.2f 15m=%.2f\n", l1, l5, l15);
+    fprintf(f, "======================================================================\n");
+    fprintf(f, "%s   host=%s   kernel=%s\n", ts, hostname, kernel);
+    fprintf(f, "======================================================================\n");
 
-    /* Extended fields, if present in this kernel's /proc/meminfo */
-    static const char *extra_fields[] = {
-        "Active", "Inactive", "Active(anon)", "Inactive(anon)",
-        "Active(file)", "Inactive(file)", "Unevictable", "Mlocked",
-        "Dirty", "Writeback", "AnonPages", "Mapped", "KReclaimable",
-        "Slab", "SReclaimable", "SUnreclaim", "KernelStack", "PageTables",
-        "CommitLimit", "Committed_AS", "VmallocTotal", "VmallocUsed",
-        "AnonHugePages", "HugePages_Total", "HugePages_Free", "Hugepagesize",
-        NULL
-    };
-    fprintf(f, "------------------------------------------------------------------\n");
-    for (int i = 0; extra_fields[i]; i++) {
-        if (!mi_has(mi, extra_fields[i])) continue;
-        unsigned long long v = mi_get(mi, extra_fields[i]);
-        char h[32];
-        /* HugePages_* and Hugepagesize/VmallocTotal etc are still in kB from
-         * /proc/meminfo except the *_Total/_Free counts, which are raw counts. */
-        if (strncmp(extra_fields[i], "HugePages_", 10) == 0)
-            fprintf(f, "  %-16s %llu\n", extra_fields[i], v);
-        else {
-            human_kb(v, h, sizeof(h));
-            fprintf(f, "  %-16s %s\n", extra_fields[i], h);
-        }
+    fprintf(f, "MEMORY\n  ");
+    print_bar_plain(f, d->mem_pct, 40);
+    fputc('\n', f);
+    log_two_col(f, "Total", total_h, "Used", used_h);
+    log_two_col(f, "Available", avail_h, "Free", free_h);
+    log_two_col(f, "Buffers", buf_h, "Cached", cache_h);
+    log_two_col(f, "Shared", shmem_h, NULL, NULL);
+    fputc('\n', f);
+
+    fprintf(f, "SWAP\n");
+    if (d->swap_total == 0) {
+        fprintf(f, "  (no swap configured)\n\n");
+    } else {
+        fprintf(f, "  ");
+        print_bar_plain(f, d->swap_pct, 40);
+        fputc('\n', f);
+        log_two_col(f, "Total", stotal_h, "Used", sused_h);
+        log_two_col(f, "Free", sfree_h, "Cached", scache_h);
+        fputc('\n', f);
     }
-    fprintf(f, "\n");
+
+    if (l1 >= 0) {
+        fprintf(f, "LOAD AVERAGE\n");
+        fprintf(f, "  1m: %.2f   5m: %.2f   15m: %.2f\n\n", l1, l5, l15);
+    }
+
+    /* Extended fields, grouped the same way as the interactive display so
+     * a daily log reads as sections instead of one flat key/value dump. */
+    static const char *ai_group[] = {
+        "Active", "Inactive", "Active(anon)", "Inactive(anon)",
+        "Active(file)", "Inactive(file)", "Unevictable", "Mlocked", NULL
+    };
+    static const char *cache_group[] = { "Dirty", "Writeback", "AnonPages", "Mapped", NULL };
+    static const char *kernel_group[] = {
+        "KReclaimable", "Slab", "SReclaimable", "SUnreclaim", "KernelStack", "PageTables", NULL
+    };
+    static const char *commit_group[] = {
+        "CommitLimit", "Committed_AS", "VmallocTotal", "VmallocUsed", NULL
+    };
+    static const char *huge_group[] = {
+        "AnonHugePages", "HugePages_Total", "HugePages_Free", "Hugepagesize", NULL
+    };
+
+    LogKv kv[8];
+    int n;
+    n = log_collect_kv(mi, ai_group, kv, 8);
+    log_write_section(f, "ACTIVE / INACTIVE", kv, n);
+    n = log_collect_kv(mi, cache_group, kv, 8);
+    log_write_section(f, "PAGE CACHE ACTIVITY", kv, n);
+    n = log_collect_kv(mi, kernel_group, kv, 8);
+    log_write_section(f, "KERNEL & RECLAIMABLE", kv, n);
+    n = log_collect_kv(mi, commit_group, kv, 8);
+    log_write_section(f, "COMMIT & VIRTUAL ADDRESS SPACE", kv, n);
+    n = log_collect_kv(mi, huge_group, kv, 8);
+    log_write_section(f, "HUGE PAGES", kv, n);
+
     fflush(f);
 }
 
