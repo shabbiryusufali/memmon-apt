@@ -1,0 +1,36 @@
+[Unit]
+Description=memmon - memory usage logger
+Documentation=man:memmon(1)
+After=local-fs.target
+
+[Service]
+Type=simple
+# LogsDirectory= makes systemd create /var/log/memmon (mode 0755, owned by
+# the service's User=/Group=) before ExecStart runs, and removes it again
+# only if RuntimeDirectoryPreserve isn't set - log files persist across
+# restarts either way since this just controls the directory itself.
+LogsDirectory=memmon
+
+# Defaults, overridable without touching this file: edit
+# /etc/memmon/memmon.conf and `systemctl restart memmon`.
+Environment=MEMMON_INTERVAL=5m
+Environment=MEMMON_LOG_DIR=/var/log/memmon
+Environment=MEMMON_LOG_RETENTION_DAYS=30
+EnvironmentFile=-/etc/memmon/memmon.conf
+
+ExecStart=/usr/bin/memmon --daemon --interval ${MEMMON_INTERVAL} --log-dir ${MEMMON_LOG_DIR} --log-retention-days ${MEMMON_LOG_RETENTION_DAYS}
+
+# Restart automatically if it ever crashes; it otherwise loops forever.
+Restart=on-failure
+RestartSec=5
+
+# Modest hardening - relax these if your environment needs to.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/memmon
+PrivateTmp=true
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

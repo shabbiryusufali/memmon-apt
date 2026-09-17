@@ -1,0 +1,81 @@
+Package: memmon
+Version: 1.1-1
+Architecture: amd64
+Maintainer: Shabbir Yusufali <shabyusufali@gmail.com>
+Installed-Size: 80
+Depends: libc6 (>= 2.38), libncursesw6 (>= 6), libtinfo6 (>= 6)
+Filename: pool/main/memmon_1.1-1_amd64.deb
+Size: 27834
+MD5sum: 0c655fb22d00d9d94570bc970a9745fc
+SHA1: d076a6b9c57d55459289456f95f1f3b6353a71e8
+SHA256: aed40eb7c0edec54b2817a9d41040460649c555ae16f0e6abf34cbc4f657cd78
+Section: utils
+Priority: optional
+Homepage: https://github.com/shabbiryusufali/memmon-apt
+Description: scrollable, man-page-styled Linux memory usage monitor
+ memmon reads /proc/meminfo (total/used/free/available memory, buffers,
+ cache, shared memory, swap, active/inactive, reclaimable slab,
+ dirty/writeback, commit, vmalloc, huge pages, and every other field the
+ running kernel exposes) along with the load average, and displays it as
+ a scrollable, man-page-styled terminal report that auto-refreshes on a
+ configurable interval (seconds, minutes, hours, or days).
+ .
+ It also runs headless via a bundled systemd service (enabled and started
+ automatically on install), appending timestamped snapshots to a daily
+ log file. Log files are pruned automatically after a configurable
+ retention period (30 days by default; see /etc/memmon/memmon.conf).
+
+Package: memmon
+Version: 1.2-1
+Architecture: amd64
+Maintainer: Shabbir Yusufali <shabyusufali@gmail.com>
+Installed-Size: 80
+Depends: libc6 (>= 2.38), libncursesw6 (>= 6), libtinfo6 (>= 6)
+Filename: pool/main/memmon_1.2-1_amd64.deb
+Size: 28174
+MD5sum: 347a38d284fa5d8e32ca85f67bade663
+SHA1: de48b456992c2bef3f6b9369d1fd2ff54f3d15d8
+SHA256: 12a720a09a1220af047caee1e5ba5adbee0c77b076cb3930b8e5370e9979fa92
+Section: utils
+Priority: optional
+Homepage: https://github.com/shabbiryusufali/memmon-apt
+Description: scrollable, man-page-styled Linux memory usage monitor
+ memmon reads /proc/meminfo (total/used/free/available memory, buffers,
+ cache, shared memory, swap, active/inactive, reclaimable slab,
+ dirty/writeback, commit, vmalloc, huge pages, and every other field the
+ running kernel exposes) along with the load average, and displays it as
+ a scrollable, man-page-styled terminal report that auto-refreshes on a
+ configurable interval (seconds, minutes, hours, or days).
+ .
+ It also runs headless via a bundled systemd service (enabled and started
+ automatically on install), appending timestamped snapshots to a daily
+ log file. Log files are pruned automatically after a configurable
+ retention period (30 days by default; see /etc/memmon/memmon.conf).
+
+Package: memmon
+Version: 1.3-1
+Architecture: amd64
+Maintainer: Shabbir Yusufali <shabyusufali@gmail.com>
+Installed-Size: 80
+Depends: libc6 (>= 2.38), libncursesw6 (>= 6), libtinfo6 (>= 6)
+Filename: pool/main/memmon_1.3-1_amd64.deb
+Size: 28892
+MD5sum: 93138773f7beaf153cf2fe0504cb34d2
+SHA1: befe6f80d860fe61fd91d018a0b63f92cf9f220b
+SHA256: 482dae6f5cb992372a5b77982d17b99b1b637b2a3f12e6abb46381fd8e9093d5
+Section: utils
+Priority: optional
+Homepage: https://github.com/shabbiryusufali/memmon-apt
+Description: scrollable, man-page-styled Linux memory usage monitor
+ memmon reads /proc/meminfo (total/used/free/available memory, buffers,
+ cache, shared memory, swap, active/inactive, reclaimable slab,
+ dirty/writeback, commit, vmalloc, huge pages, and every other field the
+ running kernel exposes) along with the load average, and displays it as
+ a scrollable, man-page-styled terminal report that auto-refreshes on a
+ configurable interval (seconds, minutes, hours, or days).
+ .
+ It also runs headless via a bundled systemd service (enabled and started
+ automatically on install), appending timestamped snapshots to a daily
+ log file. Log files are pruned automatically after a configurable
+ retention period (30 days by default; see /etc/memmon/memmon.conf).
+
