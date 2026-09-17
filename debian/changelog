@@ -1,3 +1,9 @@
+memmon (1.2-1) unstable; urgency=medium
+
+  * Force-update release: bump version to push the new build to existing installs via apt upgrade.
+
+ -- Shabbir Yusufali <shabyusufali@gmail.com>  Thu, 17 Sep 2026 18:14:59 +0000
+
 memmon (1.1-1) unstable; urgency=medium
 
   * Restructure the repository into a proper Debian source package
