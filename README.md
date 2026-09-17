@@ -8,9 +8,59 @@ kernel exposes) and shows it either:
 - as a **scrollable, man-page-styled interactive display** (ncurses) that
   auto-refreshes on a "watch"-style interval, or
 - as a **headless logger** (`--daemon`) that appends a formatted snapshot to a
-  daily log file on the same interval — meant to run under systemd.
+  daily log file on the same interval — meant to run under systemd, with the
+  daemon **enabled and started automatically** when installed via the `.deb`
+  package.
 
-## Build
+Log files older than a configurable retention window (30 days by default) are
+deleted automatically — see [Log retention](#log-retention).
+
+## Project layout
+
+```
+src/memmon.c        Source (single-file C program)
+man/memmon.1         Man page
+systemd/memmon.service   systemd unit (installed by both `make install` and the .deb)
+config/memmon.conf   Default runtime config, installed to /etc/memmon/memmon.conf
+Makefile             Plain `make` / `make install` build, for a non-packaged install
+debian/               Debian packaging (dpkg-buildpackage / debhelper)
+scripts/build-deb.sh  Builds the .deb and publishes it into pool/ + Packages(.gz)
+pool/, Packages, Packages.gz   The flat apt repository served from this repo
+```
+
+## Install via apt (recommended)
+
+This repo doubles as a flat apt repository (`pool/`, `Packages`, `Packages.gz`
+at the root). Once it's hosted somewhere apt can reach over HTTP(S) — see
+[PACKAGING.md](PACKAGING.md) for hosting options — point apt at it and
+install/upgrade normally:
+
+```bash
+echo "deb [trusted=yes] https://<wherever-you-host-this-repo>/ ./" | \
+    sudo tee /etc/apt/sources.list.d/memmon.list
+sudo apt update
+sudo apt install memmon
+```
+
+Later releases just need:
+
+```bash
+sudo apt update
+sudo apt upgrade memmon
+```
+
+Installing the package:
+- puts the binary at `/usr/bin/memmon`
+- installs `/etc/memmon/memmon.conf` (edit this to change the interval, log
+  directory, or log retention — see below)
+- installs and **enables + starts** `memmon.service` automatically, no manual
+  `systemctl enable` step needed
+- installs the man page and docs
+
+See [PACKAGING.md](PACKAGING.md) for how the repo is built/published, or to
+install a single `.deb` directly without adding a repo.
+
+## Build from source
 
 Requires a C compiler and ncurses development headers.
 
@@ -21,17 +71,14 @@ sudo apt-get install build-essential libncursesw5-dev
 make
 ```
 
-This produces a single `memmon` binary. `make` auto-detects ncurses via
-`pkg-config`; if that's unavailable it falls back to linking `-lncursesw`.
-
-## Install
+This produces a single `memmon` binary at the repo root. `make` auto-detects
+ncurses via `pkg-config`; if that's unavailable it falls back to linking
+`-lncursesw`.
 
 ```bash
-sudo make install     # installs /usr/local/bin/memmon and the systemd unit
+sudo make install     # installs to /usr/local/bin, plus the man page,
+                       # systemd unit, and /etc/memmon/memmon.conf
 ```
-
-Or just copy the `memmon` binary wherever you like — it has no other runtime
-dependencies beyond libncursesw and libc.
 
 ## Usage
 
@@ -57,6 +104,7 @@ Full option list:
 | `-o, --once` | Print a single snapshot to stdout and exit (no log file written) |
 | `-p, --plain` | Interactive watch without ncurses — plain ANSI clear/redraw. Use this if the default display looks garbled or doesn't redraw in place on your terminal |
 | `-l, --log-dir DIR` | Where daily log files go (default `/var/log/memmon`, falling back to `~/.local/share/memmon` if that's not writable) |
+| `-r, --log-retention-days N` | Auto-delete log files older than `N` days. `0` disables. Default `30` (also settable via `MEMMON_LOG_RETENTION_DAYS`) |
 | `-n, --no-log` | Disable logging while in interactive mode |
 | `-h, --help` | Usage help |
 | `-v, --version` | Version |
@@ -99,11 +147,24 @@ Load  1m=0.00 5m=0.00 15m=0.00
 The log file name rolls over automatically at local midnight — no restart
 needed, whether running interactively or as the systemd daemon.
 
-## Running as a systemd service (auto-start, 5 minute interval)
+### Log retention
 
-The included `memmon.service` runs memmon in `--daemon` mode on a 5 minute
-interval and uses `LogsDirectory=` so systemd creates and manages
-`/var/log/memmon` for you.
+Log files are named `YYYY-MM-DD.log`, one per calendar day. Whenever the log
+rolls over to a new day, memmon deletes any of its own log files older than
+the configured retention window:
+
+- `-r, --log-retention-days N` on the command line (default `30`)
+- or the `MEMMON_LOG_RETENTION_DAYS` environment variable, which the systemd
+  unit sets from `/etc/memmon/memmon.conf`
+
+Set it to `0` to disable auto-deletion and keep logs forever. Only files
+matching memmon's own `YYYY-MM-DD.log` pattern are ever touched.
+
+## Running as a systemd service (auto-start, 5 minute interval, 30 day retention)
+
+Installing the `.deb` package enables and starts `memmon.service`
+automatically. If you built from source with `make install` instead, do it
+yourself once:
 
 ```bash
 sudo make install
@@ -124,10 +185,13 @@ Stop/disable:
 sudo systemctl disable --now memmon.service
 ```
 
-To change the interval, edit `ExecStart=` in
-`/etc/systemd/system/memmon.service` (or `sudo systemctl edit memmon.service`
-to add an override), then `sudo systemctl daemon-reload && sudo systemctl
-restart memmon.service`.
+To change the interval, log directory, or log retention, edit
+`/etc/memmon/memmon.conf` (installed by both the package and `make install`)
+then apply it:
+
+```bash
+sudo systemctl restart memmon.service
+```
 
 ## If the display looks garbled
 

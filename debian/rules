@@ -1,0 +1,20 @@
+#!/usr/bin/make -f
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	dh_auto_build -- memmon
+
+override_dh_auto_install:
+	install -Dm755 memmon debian/memmon/usr/bin/memmon
+	install -Dm644 config/memmon.conf debian/memmon/etc/memmon/memmon.conf
+
+override_dh_auto_test:
+	# No test suite.
+
+override_dh_auto_clean:
+	dh_auto_clean
+	$(RM) memmon

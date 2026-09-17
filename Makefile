@@ -1,5 +1,6 @@
 CC       ?= cc
 PREFIX   ?= /usr/local
+SYSCONFDIR ?= /etc
 CFLAGS   ?= -O2 -Wall -Wextra -std=gnu11
 LDFLAGS  ?=
 
@@ -18,12 +19,14 @@ endif
 
 all: memmon
 
-memmon: memmon.c
-	$(CC) $(CFLAGS) -o $@ memmon.c $(LDFLAGS)
+memmon: src/memmon.c
+	$(CC) $(CFLAGS) -o $@ src/memmon.c $(LDFLAGS)
 
 install: memmon
 	install -Dm755 memmon $(DESTDIR)$(PREFIX)/bin/memmon
-	install -Dm644 memmon.service $(DESTDIR)/etc/systemd/system/memmon.service
+	install -Dm644 man/memmon.1 $(DESTDIR)$(PREFIX)/share/man/man1/memmon.1
+	install -Dm644 systemd/memmon.service $(DESTDIR)/etc/systemd/system/memmon.service
+	install -Dm644 config/memmon.conf $(DESTDIR)$(SYSCONFDIR)/memmon/memmon.conf
 	@echo ""
 	@echo "Installed. Next steps:"
 	@echo "  sudo systemctl daemon-reload"
@@ -31,6 +34,7 @@ install: memmon
 
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/memmon
+	rm -f $(DESTDIR)$(PREFIX)/share/man/man1/memmon.1
 	rm -f $(DESTDIR)/etc/systemd/system/memmon.service
 
 clean:

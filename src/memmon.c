@@ -5,7 +5,9 @@
  * scrollable, man-page-styled report either as an interactive ncurses
  * TUI (with a "watch"-style auto refresh) or, in --daemon mode, as
  * periodic plain-text snapshots appended to a daily log file. The
- * daemon mode is intended to be run under systemd.
+ * daemon mode is intended to be run under systemd. Daily log files
+ * older than --log-retention-days (default 30, 0 disables) are
+ * deleted automatically whenever the log rolls over to a new day.
  *
  * Build:   make
  * Run:     ./memmon                     (interactive, 5s refresh)
@@ -29,19 +31,21 @@
 #include <sys/utsname.h>
 #include <ctype.h>
 #include <locale.h>
+#include <dirent.h>
 
 #ifdef USE_NCURSES
 #include <ncurses.h>
 #endif
 
 #define PROGNAME        "memmon"
-#define VERSION         "1.0"
+#define VERSION         "1.1"
 #define MEMINFO_PATH    "/proc/meminfo"
 #define LOADAVG_PATH    "/proc/loadavg"
 #define MAX_ENTRIES     64
 #define KEY_LEN         48
 #define DEFAULT_LOGDIR  "/var/log/memmon"
 #define FALLBACK_LOGDIR ".local/share/memmon"   /* under $HOME */
+#define DEFAULT_LOG_RETENTION_DAYS 30            /* 0 disables auto-delete */
 #define PAD_LINES        400
 #define PAD_COLS         220
 
@@ -347,6 +351,9 @@ static void write_snapshot(FILE *f, const Meminfo *mi, const Derived *d,
 static FILE *g_logfile = NULL;
 static char g_log_date[16] = "";
 static char g_logdir[512] = "";
+static int g_log_retention_days = DEFAULT_LOG_RETENTION_DAYS;
+
+static void prune_old_logs(const char *logdir, int retention_days);
 
 static int log_open_for_today(void)
 {
@@ -368,7 +375,64 @@ static int log_open_for_today(void)
         return -1;
     }
     snprintf(g_log_date, sizeof(g_log_date), "%s", date);
+    /* Rolling to a new day's file is a natural, cheap point to sweep
+     * out anything older than the retention window. */
+    prune_old_logs(g_logdir, g_log_retention_days);
     return 0;
+}
+
+/* ---------------------------------------------------------------------
+ * Log retention - delete daily log files (YYYY-MM-DD.log) older than
+ * retention_days. A retention_days value <= 0 disables pruning
+ * entirely. Only ever touches files matching the exact name pattern
+ * memmon itself writes, so a log-dir shared with other files is safe.
+ * ------------------------------------------------------------------- */
+
+static int parse_log_filename_date(const char *name, struct tm *out)
+{
+    /* Expect exactly "YYYY-MM-DD.log" */
+    int y, mo, d;
+    char suffix[8];
+    if (sscanf(name, "%4d-%2d-%2d.log%7s", &y, &mo, &d, suffix) != 3)
+        return -1;
+    if (strlen(name) != 14) /* "YYYY-MM-DD.log" == 14 chars, rejects trailing junk */
+        return -1;
+    memset(out, 0, sizeof(*out));
+    out->tm_year = y - 1900;
+    out->tm_mon  = mo - 1;
+    out->tm_mday = d;
+    out->tm_hour = 12; /* noon, to sidestep any DST edge effects in mktime */
+    return 0;
+}
+
+static void prune_old_logs(const char *logdir, int retention_days)
+{
+    if (retention_days <= 0) return;
+
+    DIR *dir = opendir(logdir);
+    if (!dir) return;
+
+    time_t now = time(NULL);
+    struct dirent *ent;
+    while ((ent = readdir(dir)) != NULL) {
+        struct tm file_tm;
+        if (parse_log_filename_date(ent->d_name, &file_tm) != 0)
+            continue;
+
+        time_t file_time = mktime(&file_tm);
+        if (file_time == (time_t)-1) continue;
+
+        double age_days = difftime(now, file_time) / 86400.0;
+        if (age_days <= (double)retention_days) continue;
+
+        char path[600];
+        snprintf(path, sizeof(path), "%s/%s", logdir, ent->d_name);
+        if (unlink(path) != 0) {
+            fprintf(stderr, "%s: warning: could not delete expired log '%s': %s\n",
+                    PROGNAME, path, strerror(errno));
+        }
+    }
+    closedir(dir);
 }
 
 /* ---------------------------------------------------------------------
@@ -944,8 +1008,13 @@ static int run_daemon(long interval_secs, const char *hostname, const char *kern
     signal(SIGTERM, handle_signal);
     signal(SIGINT, handle_signal);
 
-    fprintf(stderr, "%s: starting daemon mode, interval=%lds, logdir=%s\n",
-            PROGNAME, interval_secs, g_logdir);
+    if (g_log_retention_days > 0)
+        fprintf(stderr, "%s: starting daemon mode, interval=%lds, logdir=%s, log-retention=%dd\n",
+                PROGNAME, interval_secs, g_logdir, g_log_retention_days);
+    else
+        fprintf(stderr, "%s: starting daemon mode, interval=%lds, logdir=%s, log-retention=disabled\n",
+                PROGNAME, interval_secs, g_logdir);
+    prune_old_logs(g_logdir, g_log_retention_days);
 
     while (!g_stop) {
         Meminfo mi; Derived d;
@@ -994,6 +1063,9 @@ static void usage(void)
 "  -l, --log-dir DIR          Directory for daily log files (named\n"
 "                             YYYY-MM-DD.log). Default: %s\n"
 "                             (falls back to ~/%s if not writable).\n"
+"  -r, --log-retention-days N  Auto-delete log files older than N days.\n"
+"                             N=0 disables auto-delete. Default: %d\n"
+"                             (also settable via MEMMON_LOG_RETENTION_DAYS).\n"
 "  -n, --no-log                Disable logging in interactive mode.\n"
 "  -h, --help                  Show this help and exit.\n"
 "  -v, --version                Show version and exit.\n\n"
@@ -1003,9 +1075,11 @@ static void usage(void)
 "  %s                          Interactive TUI, refresh every 5 seconds\n"
 "  %s -i 5m                    Interactive TUI, refresh every 5 minutes\n"
 "  %s --once                   One-shot plain text report\n"
-"  %s --daemon -i 5m           Headless logger for systemd (5 minute interval)\n",
+"  %s --daemon -i 5m           Headless logger for systemd (5 minute interval)\n"
+"  %s --daemon -i 5m -r 14     Same, but only keep 14 days of logs\n",
     PROGNAME, VERSION, PROGNAME, DEFAULT_LOGDIR, FALLBACK_LOGDIR,
-    PROGNAME, PROGNAME, PROGNAME, PROGNAME);
+    DEFAULT_LOG_RETENTION_DAYS,
+    PROGNAME, PROGNAME, PROGNAME, PROGNAME, PROGNAME);
 }
 
 int main(int argc, char **argv)
@@ -1019,6 +1093,17 @@ int main(int argc, char **argv)
     int no_log = 0;
     const char *logdir_arg = NULL;
     char errbuf[128];
+
+    /* MEMMON_LOG_RETENTION_DAYS lets systemd's EnvironmentFile=/etc/memmon/memmon.conf
+     * configure retention without editing the unit or passing -r explicitly;
+     * -r/--log-retention-days on the command line still wins over it. */
+    const char *retention_env = getenv("MEMMON_LOG_RETENTION_DAYS");
+    if (retention_env && *retention_env) {
+        char *end;
+        long v = strtol(retention_env, &end, 10);
+        if (end != retention_env && *end == '\0' && v >= 0)
+            g_log_retention_days = (int)v;
+    }
 
     static struct { const char *shrt; const char *lng; } opts; (void)opts;
 
@@ -1044,6 +1129,22 @@ int main(int argc, char **argv)
             logdir_arg = argv[++i];
         } else if (strncmp(a, "--log-dir=", 10) == 0) {
             logdir_arg = a + 10;
+        } else if ((strcmp(a, "-r") == 0 || strcmp(a, "--log-retention-days") == 0) && i + 1 < argc) {
+            char *end;
+            long v = strtol(argv[++i], &end, 10);
+            if (end == argv[i] || *end != '\0' || v < 0) {
+                fprintf(stderr, "%s: invalid log-retention-days '%s'\n", PROGNAME, argv[i]);
+                return 2;
+            }
+            g_log_retention_days = (int)v;
+        } else if (strncmp(a, "--log-retention-days=", 21) == 0) {
+            char *end;
+            long v = strtol(a + 21, &end, 10);
+            if (end == a + 21 || *end != '\0' || v < 0) {
+                fprintf(stderr, "%s: invalid log-retention-days '%s'\n", PROGNAME, a + 21);
+                return 2;
+            }
+            g_log_retention_days = (int)v;
         } else if (strcmp(a, "-h") == 0 || strcmp(a, "--help") == 0) {
             usage();
             return 0;

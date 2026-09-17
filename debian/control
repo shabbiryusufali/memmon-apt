@@ -1,17 +1,15 @@
-Package: memmon
-Version: 1.1-1
-Architecture: amd64
-Maintainer: Shabbir Yusufali <shabyusufali@gmail.com>
-Installed-Size: 80
-Depends: libc6 (>= 2.38), libncursesw6 (>= 6), libtinfo6 (>= 6)
-Filename: pool/main/memmon_1.1-1_amd64.deb
-Size: 27834
-MD5sum: 0c655fb22d00d9d94570bc970a9745fc
-SHA1: d076a6b9c57d55459289456f95f1f3b6353a71e8
-SHA256: aed40eb7c0edec54b2817a9d41040460649c555ae16f0e6abf34cbc4f657cd78
+Source: memmon
 Section: utils
 Priority: optional
+Maintainer: Shabbir Yusufali <shabyusufali@gmail.com>
+Build-Depends: debhelper-compat (= 13), libncursesw5-dev, pkg-config
+Standards-Version: 4.6.2
 Homepage: https://github.com/shabbiryusufali/memmon-apt
+Rules-Requires-Root: no
+
+Package: memmon
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: scrollable, man-page-styled Linux memory usage monitor
  memmon reads /proc/meminfo (total/used/free/available memory, buffers,
  cache, shared memory, swap, active/inactive, reclaimable slab,
@@ -24,4 +22,3 @@ Description: scrollable, man-page-styled Linux memory usage monitor
  automatically on install), appending timestamped snapshots to a daily
  log file. Log files are pruned automatically after a configurable
  retention period (30 days by default; see /etc/memmon/memmon.conf).
-
