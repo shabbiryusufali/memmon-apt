@@ -51,8 +51,20 @@ Requires `debhelper`, `dpkg-dev`, a C compiler, and ncurses dev headers:
 sudo apt-get install build-essential debhelper libncursesw5-dev pkg-config dpkg-dev
 ```
 
-Bump the version by adding a new entry to `debian/changelog` (or run
-`dch -i` if you have `devscripts` installed), then build:
+### Bumping the version
+
+The version lives in three places that all have to agree: the top-level
+`VERSION` file (compiled into `memmon --version`), `debian/changelog`
+(drives the package's version), and the `.TH` line in `man/memmon.1`.
+Bump all three in one step:
+
+```bash
+./scripts/bump-version.sh 1.2 "Describe what changed."
+```
+
+This writes `1.2` to `VERSION`, prepends a `debian/changelog` entry for
+`1.2-1` (edit it afterwards if the one-line summary isn't enough), and
+updates the man page's version/date. Then build:
 
 ```bash
 ./scripts/build-deb.sh
@@ -129,6 +141,7 @@ shipped default and you've also modified it locally).
 
 | Path | Purpose |
 |---|---|
+| `VERSION` | The version. Bump it (and everything derived from it) via `scripts/bump-version.sh` |
 | `src/memmon.c` | Source |
 | `man/memmon.1` | Man page source (gzipped into the package automatically) |
 | `systemd/memmon.service` | systemd unit (symlinked from `debian/memmon.service` for the packaging build) |

@@ -4,6 +4,11 @@ SYSCONFDIR ?= /etc
 CFLAGS   ?= -O2 -Wall -Wextra -std=gnu11
 LDFLAGS  ?=
 
+# VERSION is the single place to bump the app version (see scripts/bump-version.sh
+# to also update debian/changelog and the man page in one step).
+VERSION := $(shell cat VERSION)
+CFLAGS  += -DVERSION=\"$(VERSION)\"
+
 # Try to detect ncurses via pkg-config (wide-char build preferred).
 NCURSES_PKG := $(shell pkg-config --exists ncursesw 2>/dev/null && echo ncursesw || \
                        (pkg-config --exists ncurses 2>/dev/null && echo ncurses))
@@ -19,7 +24,7 @@ endif
 
 all: memmon
 
-memmon: src/memmon.c
+memmon: src/memmon.c VERSION
 	$(CC) $(CFLAGS) -o $@ src/memmon.c $(LDFLAGS)
 
 install: memmon

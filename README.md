@@ -18,6 +18,8 @@ deleted automatically — see [Log retention](#log-retention).
 ## Project layout
 
 ```
+VERSION               The version. Bump it (and debian/changelog + the man page)
+                       in one step with scripts/bump-version.sh
 src/memmon.c        Source (single-file C program)
 man/memmon.1         Man page
 systemd/memmon.service   systemd unit (installed by both `make install` and the .deb)

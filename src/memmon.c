@@ -38,7 +38,13 @@
 #endif
 
 #define PROGNAME        "memmon"
-#define VERSION         "1.1"
+#ifndef VERSION
+/* Normally supplied by the Makefile from the top-level VERSION file
+ * (-DVERSION="..."); this is only a fallback for ad hoc `cc memmon.c`
+ * builds that bypass the Makefile. See VERSION for the single place
+ * to bump the app version. */
+#define VERSION         "0.0.0-unversioned"
+#endif
 #define MEMINFO_PATH    "/proc/meminfo"
 #define LOADAVG_PATH    "/proc/loadavg"
 #define MAX_ENTRIES     64
