@@ -1,0 +1,24 @@
+Source: memmon
+Section: utils
+Priority: optional
+Maintainer: Shabbir Yusufali <shabyusufali@gmail.com>
+Build-Depends: debhelper-compat (= 13), libncursesw5-dev, pkg-config
+Standards-Version: 4.6.2
+Homepage: https://github.com/shabbiryusufali/memmon-apt
+Rules-Requires-Root: no
+
+Package: memmon
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: scrollable, man-page-styled Linux memory usage monitor
+ memmon reads /proc/meminfo (total/used/free/available memory, buffers,
+ cache, shared memory, swap, active/inactive, reclaimable slab,
+ dirty/writeback, commit, vmalloc, huge pages, and every other field the
+ running kernel exposes) along with the load average, and displays it as
+ a scrollable, man-page-styled terminal report that auto-refreshes on a
+ configurable interval (seconds, minutes, hours, or days).
+ .
+ It also runs headless via a bundled systemd service (enabled and started
+ automatically on install), appending timestamped snapshots to a daily
+ log file. Log files are pruned automatically after a configurable
+ retention period (30 days by default; see /etc/memmon/memmon.conf).

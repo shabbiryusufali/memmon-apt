@@ -1,4 +1,4 @@
-.TH MEMMON 1 "2026-09-16" "memmon 1.0" "User Commands"
+.TH MEMMON 1 "2026-09-17" "memmon 1.2" "User Commands"
 .SH NAME
 memmon \- scrollable, man-page-styled Linux memory usage monitor
 .SH SYNOPSIS
@@ -42,6 +42,13 @@ Directory for daily log files, named \fIYYYY\-MM\-DD.log\fR. Default:
 \fI/var/log/memmon\fR (falls back to \fI~/.local/share/memmon\fR if that
 is not writable).
 .TP
+.BR \-r ", " \-\-log\-retention\-days " " \fIN\fR
+Delete log files older than \fIN\fR days automatically. \fBN=0\fR disables
+auto-deletion and keeps logs forever. Default: \fB30\fR. Can also be set via
+the \fBMEMMON_LOG_RETENTION_DAYS\fR environment variable (the systemd unit
+sets this from \fI/etc/memmon/memmon.conf\fR); an explicit \fB\-r\fR on the
+command line takes precedence.
+.TP
 .BR \-n ", " \-\-no\-log
 Disable logging while in interactive mode.
 .TP
@@ -69,10 +76,16 @@ Refresh immediately and reset the countdown.
 .SH FILES
 .TP
 .I /var/log/memmon/YYYY\-MM\-DD.log
-Default daily log location (see \fB\-\-log\-dir\fR).
+Default daily log location (see \fB\-\-log\-dir\fR). Files older than the
+retention window (see \fB\-\-log\-retention\-days\fR) are deleted automatically.
+.TP
+.I /etc/memmon/memmon.conf
+Configuration sourced by the systemd unit (interval, log directory, log
+retention). Edit and run \fBsystemctl restart memmon\fR to apply.
 .TP
 .I /lib/systemd/system/memmon.service
-systemd unit for running memmon as a headless logging daemon.
+systemd unit for running memmon as a headless logging daemon. Enabled and
+started automatically when installed via the memmon .deb package.
 .SH EXAMPLES
 .TP
 memmon

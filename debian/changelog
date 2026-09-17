@@ -1,0 +1,32 @@
+memmon (1.2-1) unstable; urgency=medium
+
+  * Force-update release: bump version to push the new build to existing installs via apt upgrade.
+
+ -- Shabbir Yusufali <shabyusufali@gmail.com>  Thu, 17 Sep 2026 18:14:59 +0000
+
+memmon (1.1-1) unstable; urgency=medium
+
+  * Restructure the repository into a proper Debian source package
+    (debian/ dir, debhelper compat 13) instead of an ad hoc build
+    script, so the project builds with dpkg-buildpackage and installs
+    cleanly via apt.
+  * Add configurable log retention: daily log files older than
+    --log-retention-days (default 30, 0 disables) are deleted
+    automatically. Configurable per-host via /etc/memmon/memmon.conf
+    without editing the systemd unit.
+  * Ship /etc/memmon/memmon.conf, sourced by the systemd unit for
+    interval, log directory, and log retention.
+  * Enable and start the memmon.service systemd unit automatically on
+    install (handled by dh_installsystemd), so the daemon runs
+    immediately after `apt install`/`apt upgrade` with no manual
+    `systemctl enable --now` step required.
+  * Remove committed build artifacts (compiled binary, stray .deb
+    files, a redundant source zip) from version control.
+
+ -- Shabbir Yusufali <shabyusufali@gmail.com>  Thu, 17 Sep 2026 17:58:10 +0000
+
+memmon (1.0-2) unstable; urgency=medium
+
+  * Initial packaged release.
+
+ -- Shabbir Yusufali <shabyusufali@gmail.com>  Wed, 16 Sep 2026 05:19:00 +0000
