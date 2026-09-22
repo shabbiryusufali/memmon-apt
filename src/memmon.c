@@ -2829,7 +2829,8 @@ static int run_report(const Options *o, const char *arg)
         static const char *const exts[] = { "log", "log.gz", "jsonl", "jsonl.gz", "csv", "csv.gz", NULL };
         for (int d = 0; d < ndirs && nfiles == 0; d++) {
             for (int e = 0; exts[e]; e++) {
-                snprintf(files[nfiles], sizeof(files[0]), "%s/%s.%s", dirs[d], date, exts[e]);
+                int n = snprintf(files[nfiles], sizeof(files[0]), "%s/%s.%s", dirs[d], date, exts[e]);
+                if (n < 0 || (size_t)n >= sizeof(files[0])) continue; /* path too long */
                 if (access(files[nfiles], R_OK) == 0) nfiles++;
             }
         }
