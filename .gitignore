@@ -23,3 +23,8 @@
 # The published flat apt repo (pool/, Packages, Packages.gz) IS tracked
 # on purpose - this repo is served directly as an apt source. Only the
 # stray root-level .deb copies above are ignored.
+
+# test build output
+/tests/test_memmon
+/tests/tmp/
+/dist/

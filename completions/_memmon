@@ -1,0 +1,31 @@
+#compdef memmon
+# zsh completion for memmon
+
+_memmon_report_days() {
+    local -a days
+    days=(today yesterday ${(u)${(f)"$(ls /var/log/memmon ~/.local/share/memmon 2>/dev/null | sed -n 's/^\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\)\..*/\1/p')"}})
+    _alternatives 'days:day:compadd -a days' 'files:log file:_files'
+}
+
+_arguments -s \
+    '(-i --interval)'{-i,--interval}'[refresh/log interval]:interval (5, 5s, 5m, 1h, 1d):(5s 30s 1m 5m 15m 1h)' \
+    '(-d --daemon -o --once -p --plain -R --report)'{-d,--daemon}'[headless logger for systemd]' \
+    '(-d --daemon -o --once -p --plain -R --report)'{-o,--once}'[print one snapshot and exit]' \
+    '(-d --daemon -o --once -p --plain -R --report)'{-p,--plain}'[interactive watch without ncurses]' \
+    '(-d --daemon -o --once -p --plain -R --report)'{-R,--report}'[summarise a day'"'"'s log]:day or file:_memmon_report_days' \
+    '(-l --log-dir)'{-l,--log-dir}'[log file directory]:directory:_files -/' \
+    '(-r --log-retention-days)'{-r,--log-retention-days}'[delete logs older than N days (0 = never)]:days' \
+    '(-F --log-format)'{-F,--log-format}'[log file format]:format:(text json csv)' \
+    '--no-compress[do not gzip previous days'"'"' logs]' \
+    '(-n --no-log)'{-n,--no-log}'[disable logging in interactive modes]' \
+    '(-f --format)'{-f,--format}'[output format for --once/--report]:format:(text json csv)' \
+    '(-t --top)'{-t,--top}'[number of top processes to show]:count' \
+    '(-w --warn)'{-w,--warn}'[memory warning threshold (percent)]:percent' \
+    '(-C --crit)'{-C,--crit}'[memory critical threshold (percent)]:percent' \
+    '(-a --alert-cmd)'{-a,--alert-cmd}'[command run when the alert level changes]:command:_cmdstring' \
+    '(-g --cgroup)'{-g,--cgroup}'[cgroup v2 group to report on]:cgroup path' \
+    '(-u --units)'{-u,--units}'[size units]:units:(auto k m g)' \
+    '--no-align[do not align samples to wall-clock multiples of the interval]' \
+    '(-c --config)'{-c,--config}'[config file to read]:file:_files' \
+    '(- *)'{-h,--help}'[show help]' \
+    '(- *)'{-v,--version}'[show version]'

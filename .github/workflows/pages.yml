@@ -1,0 +1,91 @@
+# Publishes the flat apt repository to GitHub Pages:
+#   deb [signed-by=/usr/share/keyrings/memmon-archive-keyring.gpg] https://<owner>.github.io/<repo>/ ./
+#
+# The site is the committed pool/ (amd64 builds from scripts/build-deb.sh)
+# plus freshly built amd64 and arm64 packages of the current version, with
+# Packages/Release regenerated. If the APT_SIGNING_KEY secret (an
+# ASCII-armored private key without a passphrase) is set, the repository is
+# signed and the public key is published as memmon-archive-keyring.gpg.
+#
+# One-time setup: Settings -> Pages -> Source: "GitHub Actions".
+name: Publish apt repository
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential debhelper dpkg-dev libncurses-dev zlib1g-dev pkg-config python3
+      - name: Build .deb
+        run: |
+          dpkg-buildpackage -us -uc -b
+          mkdir -p dist && mv ../memmon_*.deb dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb-${{ matrix.arch }}
+          path: dist/*.deb
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: built
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends dpkg-dev gnupg
+      - name: Assemble repository
+        run: |
+          mkdir -p site/pool/main
+          cp pool/main/*.deb site/pool/main/
+          # add the freshly built packages unless that exact file is committed
+          for deb in built/*/*.deb; do
+            [ -e "site/pool/main/$(basename "$deb")" ] || cp "$deb" site/pool/main/
+          done
+      - name: Import signing key
+        env:
+          APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}
+        run: |
+          if [ -n "$APT_SIGNING_KEY" ]; then
+            echo "$APT_SIGNING_KEY" | gpg --batch --import
+            fpr="$(gpg --batch --with-colons --list-secret-keys | awk -F: '/^fpr:/ {print $10; exit}')"
+            echo "MEMMON_GPG_KEY=$fpr" >> "$GITHUB_ENV"
+          else
+            echo "::warning::APT_SIGNING_KEY secret not set - publishing an unsigned repository"
+          fi
+      - name: Generate index
+        run: ./scripts/update-repo-index.sh site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4

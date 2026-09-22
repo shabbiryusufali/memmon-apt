@@ -1,0 +1,2 @@
+# System user the memmon.service daemon runs as (see systemd-sysusers(8)).
+u memmon - "memmon memory logger" /nonexistent /usr/sbin/nologin

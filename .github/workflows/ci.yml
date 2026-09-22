@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build & test (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential debhelper dpkg-dev libncurses-dev zlib1g-dev \
+            pkg-config lintian shellcheck python3
+
+      - name: Build (warnings are errors)
+        run: make WERROR=1
+
+      - name: Build without ncurses
+        run: make -B WERROR=1 NO_NCURSES=1 && ./memmon --version && make -B WERROR=1
+
+      - name: Unit and CLI tests
+        run: make WERROR=1 check
+
+      - name: shellcheck
+        run: |
+          shellcheck scripts/*.sh tests/cli-tests.sh
+          shellcheck -s bash completions/memmon.bash
+
+      - name: Build .deb (runs the tests again under dpkg-buildpackage)
+        run: |
+          make clean
+          dpkg-buildpackage -us -uc -b
+          mkdir -p dist && mv ../memmon_*.deb dist/
+
+      - name: lintian
+        run: lintian --fail-on error --info dist/*.deb
+
+      - name: Install and smoke-test the package
+        run: |
+          sudo apt-get install -y ./dist/memmon_*.deb
+          memmon --version
+          memmon --once --format json | python3 -m json.tool > /dev/null
+          man -w memmon
+          getent passwd memmon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: memmon-deb-${{ matrix.arch }}
+          path: dist/*.deb
+          if-no-files-found: error
