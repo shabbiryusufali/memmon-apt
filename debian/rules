@@ -11,10 +11,19 @@ override_dh_auto_build:
 override_dh_auto_install:
 	install -Dm755 memmon debian/memmon/usr/bin/memmon
 	install -Dm644 config/memmon.conf debian/memmon/etc/memmon/memmon.conf
+	install -Dm644 completions/memmon.bash debian/memmon/usr/share/bash-completion/completions/memmon
+	install -Dm644 completions/_memmon debian/memmon/usr/share/zsh/vendor-completions/_memmon
 
-override_dh_auto_test:
-	# No test suite.
+# The service runs as the "memmon" system user. dh_installsysusers isn't in
+# the compat-13 sequence, so run it explicitly - before dh_installsystemd,
+# so its postinst snippet creates the user before the service is started.
+execute_before_dh_installsystemd:
+	dh_installsysusers
+
+# dh_auto_test runs `make check` (unit + CLI tests) unless
+# DEB_BUILD_OPTIONS contains nocheck.
 
 override_dh_auto_clean:
 	dh_auto_clean
-	$(RM) memmon
+	$(RM) memmon tests/test_memmon
+	$(RM) -r tests/tmp

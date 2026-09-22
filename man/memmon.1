@@ -1,35 +1,54 @@
-.TH MEMMON 1 "2026-09-17" "memmon 1.3" "User Commands"
+.TH MEMMON 1 "2026-09-22" "memmon 2.0" "User Commands"
 .SH NAME
 memmon \- scrollable, man-page-styled Linux memory usage monitor
 .SH SYNOPSIS
 .B memmon
 [\fIOPTIONS\fR]
+.br
+.B memmon \-\-once
+[\fB\-\-format\fR \fItext\fR|\fIjson\fR|\fIcsv\fR] [\fIOPTIONS\fR]
+.br
+.B memmon \-\-daemon
+[\fIOPTIONS\fR]
+.br
+.B memmon \-\-report
+\fIDAY\fR|\fIFILE\fR [\fB\-\-format\fR \fItext\fR|\fIjson\fR]
 .SH DESCRIPTION
 .B memmon
 reads
 .I /proc/meminfo
 (total/used/free/available memory, buffers, cache, shared memory, swap,
-active/inactive, reclaimable slab, dirty/writeback, commit, vmalloc, huge
-pages, and every other field the running kernel exposes) along with the
-system load average, and displays it either as a scrollable interactive
-terminal display that auto-refreshes on a timer, or logs it to a daily
-file in headless
-.B \-\-daemon
-mode, intended to run under systemd.
-.SH OPTIONS
-.TP
-.BR \-i ", " \-\-interval " " \fIINTERVAL\fR
-Refresh/log interval. Accepts plain seconds or a suffix: \fBs\fR (seconds),
-\fBm\fR (minutes), \fBh\fR (hours), \fBd\fR (days). Examples: \fB5\fR,
-\fB5s\fR, \fB5m\fR, \fB1h\fR. Default: \fB5s\fR.
+zswap, active/inactive, reclaimable slab, dirty/writeback, commit, vmalloc,
+huge pages, and every other field the running kernel exposes), the load
+average, memory pressure stall information
+.RI ( /proc/pressure/memory ),
+OOM kills, swap-in/out and major fault rates
+.RI ( /proc/vmstat ),
+zram devices, the cgroup v2 memory limit that applies to it, and the
+largest processes by resident memory.
+.PP
+By default it shows all of this as a scrollable, searchable interactive
+display with trend sparklines that refreshes on a timer. It can also print
+a single snapshot as text, JSON or CSV
+.RB ( \-\-once ),
+run as a headless logger under systemd
+.RB ( \-\-daemon ),
+or summarise a day's log
+.RB ( \-\-report ).
+.PP
+"Used" memory is \fBMemTotal \- MemAvailable\fR, matching \fBfree\fR(1)
+and \fBhtop\fR(1).
+.SH MODES
 .TP
 .BR \-d ", " \-\-daemon
-Headless mode: no interactive display, just logs a snapshot on each
-interval. Intended for systemd. Handles SIGTERM/SIGINT for clean shutdown.
+Headless mode: no display, just logs a snapshot every interval and raises
+alerts (see \fBALERTS\fR). Intended for systemd. SIGTERM/SIGINT stop it
+cleanly; SIGHUP (\fBsystemctl reload memmon\fR) re-reads the
+configuration.
 .TP
 .BR \-o ", " \-\-once
 Print a single snapshot to stdout and exit. No interactive display, no
-loop, no log file written.
+loop, no log file written. See \fB\-\-format\fR.
 .TP
 .BR \-p ", " \-\-plain
 Interactive watch mode without ncurses: plain ANSI clear-screen/redraw
@@ -37,20 +56,89 @@ instead of full cursor addressing. Use this if the default ncurses
 display looks garbled or fails to redraw in place on your terminal
 (seen on some Windows/WSL terminal front-ends).
 .TP
+.BR \-R ", " \-\-report " " \fIDAY\fR|\fIFILE\fR
+Summarise a day's log: number of samples, memory used min/avg/max with the
+time of the peak, swap usage, memory pressure, and OOM kills during the
+day. \fIDAY\fR is \fBYYYY\-MM\-DD\fR, \fBtoday\fR or \fByesterday\fR and is
+looked up in the log directory (then \fI~/.local/share/memmon\fR); text,
+JSON Lines and CSV logs are all understood, gzip-compressed or not.
+Alternatively give the path of a log file.
+.SH OPTIONS
+.TP
+.BR \-i ", " \-\-interval " " \fIINTERVAL\fR
+Refresh/log interval. Accepts plain seconds or a suffix: \fBs\fR (seconds),
+\fBm\fR (minutes), \fBh\fR (hours), \fBd\fR (days). Examples: \fB5\fR,
+\fB5s\fR, \fB5m\fR, \fB1h\fR. Default: \fB5s\fR. (\fBMEMMON_INTERVAL\fR)
+.TP
+.B \-\-no\-align
+In daemon and plain modes samples are scheduled on a fixed timetable, so
+they never drift, and, when the interval divides a day, aligned to
+wall-clock multiples of it (\fB:00\fR, \fB:05\fR, \fB:10\fR ... for
+\fB5m\fR). This option keeps the fixed timetable but starts it from launch
+time instead. (\fBMEMMON_ALIGN\fR=\fBno\fR)
+.TP
+.BR \-f ", " \-\-format " " \fItext\fR|\fIjson\fR|\fIcsv\fR
+Output format for \fB\-\-once\fR (and \fBtext\fR or \fBjson\fR for
+\fB\-\-report\fR). JSON is a single object per snapshot; CSV is a header
+line plus one row. Default: \fBtext\fR.
+.TP
 .BR \-l ", " \-\-log\-dir " " \fIDIR\fR
-Directory for daily log files, named \fIYYYY\-MM\-DD.log\fR. Default:
-\fI/var/log/memmon\fR (falls back to \fI~/.local/share/memmon\fR if that
-is not writable).
+Directory for daily log files. Default: \fI/var/log/memmon\fR. When the
+directory comes from the default or the configuration and isn't writable
+(for example a normal user running the interactive display), interactive
+modes fall back to \fI~/.local/share/memmon\fR. A directory given with
+\fB\-l\fR (or configured for the daemon) is always used as-is.
+(\fBMEMMON_LOG_DIR\fR)
+.TP
+.BR \-F ", " \-\-log\-format " " \fItext\fR|\fIjson\fR|\fIcsv\fR
+Log file format: \fBtext\fR writes \fIYYYY\-MM\-DD.log\fR (human
+readable), \fBjson\fR writes \fIYYYY\-MM\-DD.jsonl\fR (one JSON object per
+line, including every \fI/proc/meminfo\fR field and the top processes),
+\fBcsv\fR writes \fIYYYY\-MM\-DD.csv\fR (fixed columns, header on the first
+line). Default: \fBtext\fR. (\fBMEMMON_LOG_FORMAT\fR)
 .TP
 .BR \-r ", " \-\-log\-retention\-days " " \fIN\fR
 Delete log files older than \fIN\fR days automatically. \fBN=0\fR disables
-auto-deletion and keeps logs forever. Default: \fB30\fR. Can also be set via
-the \fBMEMMON_LOG_RETENTION_DAYS\fR environment variable (the systemd unit
-sets this from \fI/etc/memmon/memmon.conf\fR); an explicit \fB\-r\fR on the
-command line takes precedence.
+auto-deletion and keeps logs forever. Default: \fB30\fR.
+(\fBMEMMON_LOG_RETENTION_DAYS\fR)
+.TP
+.B \-\-no\-compress
+Don't gzip previous days' log files. By default, whenever the log rolls
+over to a new day, older \fIYYYY\-MM\-DD.*\fR logs are compressed to
+\fI.gz\fR. (\fBMEMMON_LOG_COMPRESS\fR=\fBno\fR)
 .TP
 .BR \-n ", " \-\-no\-log
-Disable logging while in interactive mode.
+Disable logging while in the interactive modes.
+.TP
+.BR \-t ", " \-\-top " " \fIN\fR
+Show (and log) the \fIN\fR largest processes by resident set size, with
+their swap usage. \fB0\fR hides the section; the maximum is \fB50\fR.
+Default: \fB5\fR. (\fBMEMMON_TOP_PROCESSES\fR)
+.TP
+.BR \-w ", " \-\-warn " " \fIPCT\fR
+.TQ
+.BR \-C ", " \-\-crit " " \fIPCT\fR
+Memory-used thresholds for the warning and critical levels. They set the
+colors of the bars and drive \fBALERTS\fR. Defaults: \fB60\fR and
+\fB85\fR. (\fBMEMMON_WARN_PERCENT\fR, \fBMEMMON_CRIT_PERCENT\fR)
+.TP
+.BR \-a ", " \-\-alert\-cmd " " \fICOMMAND\fR
+Shell command run by the daemon when the alert level changes; see
+\fBALERTS\fR. (\fBMEMMON_ALERT_CMD\fR)
+.TP
+.BR \-g ", " \-\-cgroup " " \fIPATH\fR
+cgroup v2 group to report on, relative to \fI/sys/fs/cgroup\fR. By default
+memmon walks up from its own cgroup to the nearest ancestor with a memory
+limit (for example the container it runs in) and omits the section when
+nothing is limited. (\fBMEMMON_CGROUP\fR)
+.TP
+.BR \-u ", " \-\-units " " \fIauto\fR|\fIk\fR|\fIm\fR|\fIg\fR
+Show sizes in automatically scaled units (default), or always in KiB, MiB
+or GiB. (\fBMEMMON_UNITS\fR)
+.TP
+.BR \-c ", " \-\-config " " \fIFILE\fR
+Read settings from \fIFILE\fR instead of the system and user configuration
+files.
 .TP
 .BR \-h ", " \-\-help
 Show usage help and exit.
@@ -62,30 +150,95 @@ Show version and exit.
 .B q
 Quit.
 .TP
-.B "up/down or j/k"
-Scroll one line.
+.B "Up/Down, j/k, mouse wheel"
+Scroll.
 .TP
-.B "PgUp/PgDn"
+.B "PgUp/PgDn, Space"
 Scroll one page.
 .TP
-.B "g / G"
+.B "g / G, Home / End"
 Jump to top / bottom of the report.
 .TP
 .B r
 Refresh immediately and reset the countdown.
+.TP
+.B p
+Pause / resume sampling (the display stays scrollable).
+.TP
+.B u
+Cycle size units: auto, KiB, MiB, GiB.
+.TP
+.B /
+Search the report (case-insensitive); the matching line is highlighted.
+.TP
+.B "n / N"
+Next / previous match.
+.TP
+.B "? or h"
+Show the key help.
+.SH CONFIGURATION
+Settings are taken from, in increasing order of precedence: built-in
+defaults, \fI/etc/memmon/memmon.conf\fR, \fI~/.config/memmon/memmon.conf\fR
+(or \fI$XDG_CONFIG_HOME/memmon/memmon.conf\fR), \fBMEMMON_*\fR environment
+variables, and command-line options. \fB\-c\fR replaces both files.
+.PP
+The files contain \fBKEY=VALUE\fR lines using the variable names shown
+with each option above; blank lines and lines starting with \fB#\fR are
+ignored, an \fBexport\fR prefix and matching surrounding quotes are
+allowed. An invalid value is an error (naming the file and line); an
+unknown key is a warning.
+.SH ALERTS
+The memory-used percentage is classified as \fBok\fR, \fBwarning\fR
+(\fB\-\-warn\fR) or \fBcritical\fR (\fB\-\-crit\fR). A level is only left
+again once usage drops 5 points below its threshold, so values hovering
+around a threshold don't flap. Interactive modes show the level in the
+header. In daemon mode each change is written to stderr (the journal) and,
+if set, \fB\-\-alert\-cmd\fR is run with \fB/bin/sh \-c\fR, in the
+background, with these environment variables:
+.TP
+.B MEMMON_ALERT_LEVEL, MEMMON_ALERT_PREVIOUS
+\fBok\fR, \fBwarning\fR or \fBcritical\fR.
+.TP
+.B MEMMON_MEM_PCT, MEMMON_MEM_USED_KB, MEMMON_MEM_TOTAL_KB, MEMMON_SWAP_PCT
+Current usage.
+.TP
+.B MEMMON_PSI_SOME_AVG10
+Memory pressure, when the kernel provides it.
+.TP
+.B MEMMON_WARN_PERCENT, MEMMON_CRIT_PERCENT, MEMMON_HOST
+Thresholds and host name.
+.PP
+Example:
+.PP
+.nf
+.RS
+MEMMON_ALERT_CMD=logger \-p user.warning "memory $MEMMON_ALERT_LEVEL ($MEMMON_MEM_PCT%)"
+.RE
+.fi
 .SH FILES
 .TP
-.I /var/log/memmon/YYYY\-MM\-DD.log
-Default daily log location (see \fB\-\-log\-dir\fR). Files older than the
-retention window (see \fB\-\-log\-retention\-days\fR) are deleted automatically.
+.I /var/log/memmon/YYYY\-MM\-DD.{log,jsonl,csv}[.gz]
+Default daily log location (see \fB\-\-log\-dir\fR). Previous days are
+compressed and files older than the retention window are deleted
+automatically; other files in the directory are never touched.
 .TP
 .I /etc/memmon/memmon.conf
-Configuration sourced by the systemd unit (interval, log directory, log
-retention). Edit and run \fBsystemctl restart memmon\fR to apply.
+System-wide configuration, also used by the systemd service. Apply
+changes with \fBsystemctl reload memmon\fR.
 .TP
-.I /lib/systemd/system/memmon.service
-systemd unit for running memmon as a headless logging daemon. Enabled and
-started automatically when installed via the memmon .deb package.
+.I ~/.config/memmon/memmon.conf
+Per-user configuration.
+.TP
+.I /usr/lib/systemd/system/memmon.service
+systemd unit for running memmon as a headless logging daemon as the
+unprivileged \fBmemmon\fR user. Enabled and started automatically when
+installed via the memmon .deb package. A log directory other than
+\fI/var/log/memmon\fR must be writable by that user and allowed with
+\fBsystemctl edit memmon\fR (\fB[Service]\fR \fBReadWritePaths=\fR\fIDIR\fR).
+.SH EXIT STATUS
+\fB0\fR on success, \fB1\fR on a runtime error (for example no readable
+\fI/proc/meminfo\fR, or no logs for \fB\-\-report\fR), \fB2\fR for invalid
+options or configuration.
 .SH EXAMPLES
 .TP
 memmon
@@ -94,12 +247,16 @@ Interactive display, refreshing every 5 seconds.
 memmon \-i 5m
 Interactive display, refreshing every 5 minutes.
 .TP
-memmon \-\-once
-One-shot plain text report.
+memmon \-\-once \-\-format json | jq .mem_pct
+One-shot snapshot as JSON.
 .TP
-memmon \-\-daemon \-i 5m
-Headless logger, as used by the systemd service.
+memmon \-\-daemon \-i 5m \-F csv
+Headless logger writing CSV.
+.TP
+memmon \-\-report yesterday
+Summary of yesterday's log.
 .SH SEE ALSO
 .BR free (1),
 .BR top (1),
-.BR proc (5)
+.BR proc (5),
+.BR systemd.exec (5)

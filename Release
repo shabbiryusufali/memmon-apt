@@ -1,0 +1,16 @@
+Origin: memmon
+Label: memmon
+Suite: stable
+Codename: memmon
+Date: Tue, 22 Sep 2026 20:00:52 +0000
+Architectures: amd64
+Description: memmon flat apt repository
+MD5Sum:
+ e51dc8a842d362b40d22443955c78e88 5424 Packages
+ ae153f17eaec17ec5e737cc863fc8439 1480 Packages.gz
+SHA1:
+ aeeb6f81d61b5d40d3d5cd2f72dae68942b86321 5424 Packages
+ 1b025dce990b5dd2773c634d81a5716dbebacffc 1480 Packages.gz
+SHA256:
+ bbcd12bf9515eddfc19366375bf4e6f2ddb609c327981c71b1caeb93c62a2009 5424 Packages
+ 2b99d61bf8dfb7ac2ec044979a571b19bf31fe29d0de2354954d3b975c5659f0 1480 Packages.gz

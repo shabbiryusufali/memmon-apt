@@ -5,32 +5,65 @@ After=local-fs.target
 
 [Service]
 Type=simple
-# LogsDirectory= makes systemd create /var/log/memmon (mode 0755, owned by
-# the service's User=/Group=) before ExecStart runs, and removes it again
-# only if RuntimeDirectoryPreserve isn't set - log files persist across
-# restarts either way since this just controls the directory itself.
+# Runs as the unprivileged "memmon" system user (created from
+# /usr/lib/sysusers.d/memmon.conf). Reading /proc and /sys needs no
+# privileges.
+User=memmon
+Group=memmon
+
+# LogsDirectory= makes systemd create /var/log/memmon owned by memmon
+# before ExecStart runs (and fixes ownership of logs written by older,
+# root-run versions). It is also the only path the service may write to
+# under ProtectSystem=strict below. Mode 0755 keeps the logs readable by
+# other users, e.g. for `memmon --report`.
 LogsDirectory=memmon
+LogsDirectoryMode=0755
 
-# Defaults, overridable without touching this file: edit
-# /etc/memmon/memmon.conf and `systemctl restart memmon`.
-Environment=MEMMON_INTERVAL=5m
-Environment=MEMMON_LOG_DIR=/var/log/memmon
-Environment=MEMMON_LOG_RETENTION_DAYS=30
-EnvironmentFile=-/etc/memmon/memmon.conf
-
-ExecStart=/usr/bin/memmon --daemon --interval ${MEMMON_INTERVAL} --log-dir ${MEMMON_LOG_DIR} --log-retention-days ${MEMMON_LOG_RETENTION_DAYS}
+# All settings (interval, log directory/format/retention, thresholds,
+# alert command, ...) are read by memmon itself from
+# /etc/memmon/memmon.conf. Edit it, then apply with
+# `systemctl reload memmon` (or restart).
+#
+# Using a MEMMON_LOG_DIR other than /var/log/memmon? That directory must
+# be writable by the memmon user AND made writable for the service:
+#   sudo systemctl edit memmon
+#   [Service]
+#   ReadWritePaths=/your/log/dir
+ExecStart=/usr/bin/memmon --daemon
+ExecReload=/bin/kill -HUP $MAINPID
 
 # Restart automatically if it ever crashes; it otherwise loops forever.
 Restart=on-failure
 RestartSec=5
+Nice=10
 
-# Modest hardening - relax these if your environment needs to.
+# Hardening. MEMMON_ALERT_CMD hooks run inside this sandbox too; network
+# access (AF_INET/AF_INET6) is left available so hooks can call webhooks
+# or send mail, and MemoryDenyWriteExecute= is not set so hooks written in
+# JIT runtimes (node, java) still work. /proc stays fully visible so the
+# top-processes view works.
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/log/memmon
 PrivateTmp=true
-Nice=10
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0022
 
 [Install]
 WantedBy=multi-user.target
